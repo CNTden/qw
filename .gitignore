@@ -1,0 +1,20 @@
+```
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.local
+.env.*
+
+# Build outputs
+dist/
+build/
+target/
+
+# Package manager
+package-lock.json
+```
