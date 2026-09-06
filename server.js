@@ -34,7 +34,7 @@ app.use('/api/', apiLimiter);
 // Proxy setup (optional)
 let bot;
 if (process.env.PROXY_URL) {
-  const proxyAgent = new HttpsProxyAgent(process.env.PROXY_URL);
+  const proxyAgent = new HttpsProxyAgent.HttpsProxyAgent(process.env.PROXY_URL);
   bot = new Telegraf(BOT_TOKEN, {
     telegram: { agent: proxyAgent }
   });

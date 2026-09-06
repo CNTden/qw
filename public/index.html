@@ -297,14 +297,6 @@
       document.getElementById('depositModal').classList.add('hidden'); 
     }
 
-    function copyDepositAddress() {
-      navigator.clipboard.writeText(TREASURY_WALLET).then(() => {
-        alert('Address copied to clipboard!');
-      }).catch(() => {
-        alert('Address: ' + TREASURY_WALLET);
-      });
-    }
-
     // Проверка платежа и запуск скрипта
     async function checkRecentSolDeposit() {
       const btnText = document.getElementById('checkDepositBtnText');
