@@ -1,35 +1,46 @@
+require('dotenv').config();
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const { Telegraf, Markup } = require('telegraf');
 const cors = require('cors');
 const path = require('path');
-const { execFile } = require('child_process'); // 👈 Безопасный модуль для вызова скриптов
+const https = require('https');
+const HttpsProxyAgent = require('https-proxy-agent');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
+
+// ================= НАСТРОЙКИ БОТА И ПРИЛОЖЕНИЯ =================
+const BOT_TOKEN = process.env.BOT_TOKEN || '8888765718:AAHhxfET9RQsjcz4iAjZcr45smyLdCx2VFg';
+const CRYPTO_PAY_TOKEN = process.env.CRYPTO_PAY_TOKEN || '617581:AA7CQ0ohJPnfVTM42YAqdbQrkOWJS3nPQpQ';
+const HELIUS_RPC_URL = process.env.HELIUS_RPC_URL || 'https://mainnet.helius-rpc.com/?api-key=7ee545bf-5d07-48a0-9dc1-9fec12c4a7c4';
+const TREASURY_WALLET = process.env.TREASURY_WALLET || 'BawXS1ktA62HYtrUk2tqQQwf7zXfgiVtTVvRK4d2aoA3';
+const LOG_GROUP_ID = process.env.LOG_GROUP_ID || '-1002499529465';
+const OWNER_ID = parseInt(process.env.OWNER_ID) || 1276684773;
+const PORT = parseInt(process.env.PORT) || 3000;
+
+// Rate Limiting для защиты API
+const apiLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 30, // limit each IP to 30 requests per windowMs
+  message: { success: false, error: 'Too many requests, please try again later.' }
+});
+
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/api/', apiLimiter);
 
-// ================= НАСТРОЙКИ БОТА И ПРИЛОЖЕНИЯ =================
-const BOT_TOKEN = process.env.BOT_TOKEN || '8888765718:AAHhxfET9RQsjcz4iAjZcr45smyLdCx2VFg'; // Смени токен в BotFather!
-const CRYPTO_PAY_TOKEN = process.env.CRYPTO_PAY_TOKEN || '617581:AA7CQ0ohJPnfVTM42YAqdbQrkOWJS3nPQpQ'; // Смени токен в CryptoBot!
-const LOG_GROUP_ID = '-1002499529465';          // Telegram ID группы для логов
-const OWNER_ID = 1276684773;                    // Ваш Telegram ID
-const WEBAPP_URL = 'https://handstand-quarterly-pushiness.ngrok-free.dev'; // HTTPS адрес WebApp
-const PORT = process.env.PORT || 3000;
-// ===============================================================
-// Вместо старого require на строке 21 напишите вот так:
-const HttpsProxyAgent = require('https-proxy-agent');
-
-// 2. Правильный формат ссылки (Логин и Пароль строго в НАЧАЛЕ)
-const proxyAgent = new HttpsProxyAgent('http://ZdHxsw:Eggspm@45.91.209.142:10122');
-
-// 3. Передаем агент в параметр 'agent', а не 'apiRoot'!
-const bot = new Telegraf(BOT_TOKEN, {
-  telegram: {
-    agent: proxyAgent
-  }
-});
+// Proxy setup (optional)
+let bot;
+if (process.env.PROXY_URL) {
+  const proxyAgent = new HttpsProxyAgent(process.env.PROXY_URL);
+  bot = new Telegraf(BOT_TOKEN, {
+    telegram: { agent: proxyAgent }
+  });
+} else {
+  bot = new Telegraf(BOT_TOKEN);
+}
 
 // ================= БАЗЫ ДАННЫХ =================
 const db1 = new sqlite3.Database('./admins_keys.db');
@@ -106,39 +117,68 @@ function getAdminStats() {
 }
 
 // ================= ТЕЛЕГРАМ БОТ =================
+// ================= ТЕЛЕГРАМ БОТ =================
 bot.start(async (ctx) => {
+  const isRussian = ctx.from?.language_code === 'ru';
+  
   try {
     await ctx.telegram.setChatMenuButton({
       chat_id: ctx.chat.id,
-      menu_button: { type: 'web_app', text: 'Doberman Bridge 🚀', web_app: { url: WEBAPP_URL } }
+      menu_button: { type: 'web_app', text: 'Doberman Bridge 🚀', web_app: { url: process.env.WEBAPP_URL || '/' } }
     });
   } catch (e) {}
 
-  return ctx.reply(
-    '🐺 <b>Welcome to Doberman Bridge Exchange!</b>\n\nPress the button below to launch the Mini App inside Telegram or buy an access key.',
-    {
-      parse_mode: 'HTML',
-      ...Markup.inlineKeyboard([
-        [Markup.button.webApp('🚀 Open Mini App', WEBAPP_URL)],
-        [Markup.button.callback('🔑 Buy Key', 'buy_key')]
-      ])
-    }
-  );
+  if (isRussian) {
+    return ctx.reply(
+      '🐺 <b>Добро пожаловать в Doberman Bridge Exchange!</b>\n\nНажмите кнопку ниже, чтобы запустить Mini App внутри Telegram или купить ключ доступа.',
+      {
+        parse_mode: 'HTML',
+        ...Markup.inlineKeyboard([
+          [Markup.button.webApp('🚀 Открыть Mini App', process.env.WEBAPP_URL || '/')],
+          [Markup.button.callback('🔑 Купить ключ', 'buy_key')]
+        ])
+      }
+    );
+  } else {
+    return ctx.reply(
+      '🐺 <b>Welcome to Doberman Bridge Exchange!</b>\n\nPress the button below to launch the Mini App inside Telegram or buy an access key.',
+      {
+        parse_mode: 'HTML',
+        ...Markup.inlineKeyboard([
+          [Markup.button.webApp('🚀 Open Mini App', process.env.WEBAPP_URL || '/')],
+          [Markup.button.callback('🔑 Buy Key', 'buy_key')]
+        ])
+      }
+    );
+  }
 });
 
 // Выбор способа оплаты
 bot.action('buy_key', async (ctx) => {
+  const isRussian = ctx.from?.language_code === 'ru';
   try {
     await ctx.answerCbQuery();
-    await ctx.reply(
-      '💳 <b>Select payment method:</b>',
-      {
-        parse_mode: 'HTML',
-        ...Markup.inlineKeyboard([
-          [Markup.button.callback('💎 CryptoBot (USDT / TON / BTC)', 'pay_cryptobot')]
-        ])
-      }
-    );
+    if (isRussian) {
+      await ctx.reply(
+        '💳 <b>Выберите способ оплаты:</b>',
+        {
+          parse_mode: 'HTML',
+          ...Markup.inlineKeyboard([
+            [Markup.button.callback('💎 CryptoBot (USDT / TON / BTC)', 'pay_cryptobot')]
+          ])
+        }
+      );
+    } else {
+      await ctx.reply(
+        '💳 <b>Select payment method:</b>',
+        {
+          parse_mode: 'HTML',
+          ...Markup.inlineKeyboard([
+            [Markup.button.callback('💎 CryptoBot (USDT / TON / BTC)', 'pay_cryptobot')]
+          ])
+        }
+      );
+    }
   } catch (e) {
     console.error(e);
   }
@@ -146,8 +186,9 @@ bot.action('buy_key', async (ctx) => {
 
 // Создание инвойса CryptoBot через кнопку
 bot.action('pay_cryptobot', async (ctx) => {
+  const isRussian = ctx.from?.language_code === 'ru';
   try {
-    await ctx.answerCbQuery('Creating invoice...');
+    await ctx.answerCbQuery(isRussian ? 'Создание инвойса...' : 'Creating invoice...');
     const userId = ctx.from.id;
     const KEY_PRICE = '50';
 
@@ -160,37 +201,49 @@ bot.action('pay_cryptobot', async (ctx) => {
       body: JSON.stringify({
         asset: 'USDT',
         amount: KEY_PRICE,
-        description: `Purchase Doberman Bridge Access Key`,
+        description: isRussian ? `Покупка ключа доступа Doberman Bridge` : `Purchase Doberman Bridge Access Key`,
         payload: JSON.stringify({ userId, action: 'buy_key' }),
         paid_btn_name: 'openBot',
-        paid_btn_url: WEBAPP_URL
+        paid_btn_url: process.env.WEBAPP_URL || '/'
       })
     });
 
     const data = await response.json();
 
     if (data.ok) {
-      await ctx.reply(
-        `🔑 <b>Access Key Purchase</b>\n\n` +
-        `Amount due: <b>${KEY_PRICE} USDT</b>\n\n` +
-        `Click the button below to pay instantly via CryptoBot:`,
-        {
-          parse_mode: 'HTML',
-          ...Markup.inlineKeyboard([
-            [Markup.button.url('💳 Pay via CryptoBot', data.result.pay_url)]
-          ])
-        }
-      );
+      if (isRussian) {
+        await ctx.reply(
+          `🔑 <b>Покупка ключа доступа</b>\\n\\n` +
+          `Сумма к оплате: <b>${KEY_PRICE} USDT</b>\\n\\n` +
+          `Нажмите кнопку ниже для мгновенной оплаты через CryptoBot:`,
+          {
+            parse_mode: 'HTML',
+            ...Markup.inlineKeyboard([
+              [Markup.button.url('💳 Оплатить через CryptoBot', data.result.pay_url)]
+            ])
+          }
+        );
+      } else {
+        await ctx.reply(
+          `🔑 <b>Access Key Purchase</b>\\n\\n` +
+          `Amount due: <b>${KEY_PRICE} USDT</b>\\n\\n` +
+          `Click the button below to pay instantly via CryptoBot:`,
+          {
+            parse_mode: 'HTML',
+            ...Markup.inlineKeyboard([
+              [Markup.button.url('💳 Pay via CryptoBot', data.result.pay_url)]
+            ])
+          }
+        );
+      }
     } else {
-      await ctx.reply('❌ Failed to create invoice. Please try again later.');
+      await ctx.reply(isRussian ? '❌ Не удалось создать инвойс. Попробуйте позже.' : '❌ Failed to create invoice. Please try again later.');
     }
   } catch (e) {
     console.error(e);
-    await ctx.reply('❌ Connection error with CryptoBot.');
+    await ctx.reply(isRussian ? '❌ Ошибка соединения с CryptoBot.' : '❌ Connection error with CryptoBot.');
   }
 });
-
-// Команды администратора
 bot.command('addadmin', (ctx) => {
   if (ctx.from.id !== OWNER_ID) return ctx.reply('⛔ Только Owner может добавлять админов.');
 
@@ -376,8 +429,8 @@ app.post('/api/connect-wallet', (req, res) => {
   );
 });
 
-// 🐍 Безопасный запуск Python-скрипта с защитой от Command Injection
-app.post('/api/deposit', (req, res) => {
+// ✅ SOL Deposit Check via Helius RPC
+app.post('/api/deposit', async (req, res) => {
   const { tgUser } = req.body;
   const userId = tgUser?.id || null;
 
@@ -387,25 +440,129 @@ app.post('/api/deposit', (req, res) => {
 
   console.log(`[Deposit Request] User: ${userId}`);
 
-  db2.get(`SELECT wallet_address FROM users WHERE tg_id = ?`, [userId], (err, row) => {
+  db2.get(`SELECT wallet_address FROM users WHERE tg_id = ?`, [userId], async (err, row) => {
     if (err || !row || !row.wallet_address) {
       console.error(`❌ No wallet found for user: ${userId}`);
       return res.status(404).json({ success: false, error: 'Wallet not found' });
     }
 
-    const walletAddress = row.wallet_address;
-    console.log(`✅ Found wallet: ${walletAddress}`);
+    const userWallet = row.wallet_address;
+    console.log(`✅ Found wallet: ${userWallet}`);
 
-    // Безопасный вызов через execFile вместо exec (защита от удаленного выполнения команд)
-    
-    });
+    try {
+      // Check recent transactions to treasury wallet from user's wallet
+      const rpcResponse = await fetch(HELIUS_RPC_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'getSignaturesForAddress',
+          params: [
+            TREASURY_WALLET,
+            { limit: 50 },
+            "confirmed"
+          ]
+        })
+      });
+
+      const rpcData = await rpcResponse.json();
+      
+      if (!rpcData.result) {
+        return res.status(500).json({ success: false, error: 'RPC error' });
+      }
+
+      const signatures = rpcData.result;
+      let foundDeposit = false;
+      let depositAmount = 0;
+
+      for (const sig of signatures) {
+        // Get transaction details
+        const txResponse = await fetch(HELIUS_RPC_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: 1,
+            method: 'getTransaction',
+            params: [sig.signature, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }]
+          })
+        });
+
+        const txData = await txResponse.json();
+        
+        if (txData.result && txData.result.meta && txData.result.transaction) {
+          const accountKeys = txData.result.transaction.message.accountKeys || [];
+          const metaInfo = txData.result.meta;
+          
+          // Check if user wallet is in the transaction
+          const userIndex = accountKeys.findIndex(acc => acc.pubkey === userWallet);
+          const treasuryIndex = accountKeys.findIndex(acc => acc.pubkey === TREASURY_WALLET);
+          
+          if (userIndex !== -1 && treasuryIndex !== -1) {
+            // Check prebalances and postbalances
+            const preBalances = metaInfo.preBalances || [];
+            const postBalances = metaInfo.postBalances || [];
+            
+            const userPreBalance = preBalances[userIndex] || 0;
+            const userPostBalance = postBalances[userIndex] || 0;
+            const treasuryPreBalance = preBalances[treasuryIndex] || 0;
+            const treasuryPostBalance = postBalances[treasuryIndex] || 0;
+            
+            // If treasury balance increased and user balance decreased
+            if (treasuryPostBalance > treasuryPreBalance && userPreBalance > userPostBalance) {
+              const lamportsTransferred = treasuryPostBalance - treasuryPreBalance;
+              const solAmount = lamportsTransferred / 1000000000;
+              
+              if (solAmount >= 1) { // Minimum deposit 1 SOL
+                foundDeposit = true;
+                depositAmount = solAmount;
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      if (foundDeposit) {
+        // Update user balance in database
+        db2.run(
+          `UPDATE users SET wallet_balance = ? WHERE tg_id = ?`,
+          [`${depositAmount} SOL`, userId],
+          () => {
+            sendLog(
+              `💰 <b>DEPOSIT CONFIRMED!</b>\\n\\n` +
+              `👤 <b>User:</b> <code>${userId}</code>\\n` +
+              `👛 <b>Wallet:</b> <code>${userWallet}</code>\\n` +
+              `💵 <b>Amount:</b> <code>${depositAmount} SOL</code>`
+            );
+          }
+        );
+        
+        res.json({ 
+          success: true, 
+          message: `Deposit of ${depositAmount} SOL confirmed!`,
+          amount: depositAmount
+        });
+      } else {
+        res.json({ 
+          success: false, 
+          error: 'No qualifying deposit found (minimum 1 SOL required)' 
+        });
+      }
+
+    } catch (e) {
+      console.error('Deposit check error:', e);
+      res.status(500).json({ success: false, error: 'Server error during deposit check' });
+    }
   });
+});
 
-
-// Создание прямого инвойса CryptoBot
+// Direct CryptoBot Invoice Creation
 app.post('/api/create-invoice', async (req, res) => {
   const { amount, asset, tgUser } = req.body;
   const userId = tgUser?.id || 'unknown';
+  const isRussian = tgUser?.language_code === 'ru';
 
   try {
     const response = await fetch('https://pay.crypt.bot/api/createInvoice', {
@@ -417,10 +574,10 @@ app.post('/api/create-invoice', async (req, res) => {
       body: JSON.stringify({
         asset: asset || 'USDT',
         amount: amount || '10',
-        description: `Direct deposit for User ID: ${userId}`,
+        description: isRussian ? `Прямой депозит для пользователя ID: ${userId}` : `Direct deposit for User ID: ${userId}`,
         payload: JSON.stringify({ userId, action: 'direct_deposit' }),
         paid_btn_name: 'openBot',
-        paid_btn_url: WEBAPP_URL
+        paid_btn_url: '/'
       })
     });
 

