@@ -12,38 +12,70 @@
   
   <style>
     :root { --app-height: 100vh; }
-    body { min-height: var(--app-height); background-color: #060911; color: #f3f4f6; overflow-x: hidden; }
+    body { min-height: var(--app-height); background: linear-gradient(135deg, #060911 0%, #0a0f1e 100%); color: #f3f4f6; overflow-x: hidden; }
+    
+    /* Animations */
     @keyframes pulseGlow { 0%, 100% { box-shadow: 0 0 15px rgba(0, 102, 255, 0.4); } 50% { box-shadow: 0 0 30px rgba(0, 102, 255, 0.8); } }
     .glow-box { animation: pulseGlow 3s infinite; }
-    .bg-card-blue { background-color: #0d1527; }
+    
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in { animation: fadeIn 0.5s ease-out forwards; }
+    
+    @keyframes slideIn { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+    .slide-in { animation: slideIn 0.4s ease-out forwards; }
+    
+    @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+    .float { animation: float 3s ease-in-out infinite; }
+    
+    @keyframes shimmer { 0% { background-position: -1000px 0; } 100% { background-position: 1000px 0; } }
+    .shimmer { background: linear-gradient(to right, #0d1527 0%, #1a2342 50%, #0d1527 100%); background-size: 1000px 100%; animation: shimmer 2s infinite; }
+    
+    .bg-card-blue { background: linear-gradient(145deg, #0d1527 0%, #16203a 100%); }
+    
+    /* Button hover effects */
+    .btn-hover { transition: all 0.3s ease; }
+    .btn-hover:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(0, 102, 255, 0.4); }
+    
+    /* Modal animations */
+    .modal-enter { animation: modalEnter 0.3s ease-out forwards; }
+    @keyframes modalEnter { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+    
+    /* Toast notifications */
+    .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px); background: #1a2342; border: 1px solid #0066ff; padding: 12px 24px; border-radius: 12px; z-index: 100; transition: transform 0.3s ease; box-shadow: 0 5px 20px rgba(0, 102, 255, 0.3); }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .toast.success { border-color: #10b981; box-shadow: 0 5px 20px rgba(16, 185, 129, 0.3); }
+    .toast.error { border-color: #ef4444; box-shadow: 0 5px 20px rgba(239, 68, 68, 0.3); }
   </style>
 </head>
 <body class="font-sans flex flex-col justify-between select-none max-w-md mx-auto relative min-h-screen">
 
   <!-- NAVBAR -->
   <header class="flex justify-between items-center px-4 py-3 border-b border-blue-900/40 sticky top-0 bg-[#060911]/90 backdrop-blur z-40">
-    <div class="flex items-center space-x-2">
-      <svg class="w-7 h-7 text-blue-500 fill-current" viewBox="0 0 100 100">
+    <div class="flex items-center space-x-2 slide-in">
+      <svg class="w-7 h-7 text-blue-500 fill-current float" viewBox="0 0 100 100">
         <polygon points="50,10 20,40 35,90 50,75 65,90 80,40" fill="none" stroke="#0066ff" stroke-width="6"/>
         <polygon points="50,25 35,45 50,65 65,45" fill="#0066ff" opacity="0.8"/>
       </svg>
       <span class="text-lg font-bold tracking-wider text-white">DOBERMAN <span class="text-blue-500">BRIDGE</span></span>
     </div>
 
-    <button id="menuBtn" onclick="toggleMenu()" class="p-2 rounded focus:outline-none">
+    <button id="menuBtn" onclick="toggleMenu()" class="p-2 rounded focus:outline-none btn-hover">
       <div class="w-5 h-0.5 bg-blue-500 mb-1"></div>
       <div class="w-5 h-0.5 bg-blue-500 mb-1"></div>
       <div class="w-5 h-0.5 bg-blue-500"></div>
     </button>
 
-    <div id="sideMenu" class="hidden absolute top-14 right-4 w-48 bg-card-blue border border-blue-500/30 rounded-xl p-2 shadow-2xl space-y-1 z-50">
-      <button id="menuKeyBtn" onclick="openKeyModal()" class="w-full text-left px-3 py-2 hover:bg-blue-600/20 rounded-lg text-xs font-medium text-blue-400">🔑 Enter Key</button>
-      <button onclick="alert('Status: @DobermanBridgeSupport')" class="w-full text-left px-3 py-2 hover:bg-blue-600/20 rounded-lg text-xs font-medium text-gray-200">🟢 Status</button>
+    <div id="sideMenu" class="hidden absolute top-14 right-4 w-48 bg-card-blue border border-blue-500/30 rounded-xl p-2 shadow-2xl space-y-1 z-50 modal-enter">
+      <button id="menuKeyBtn" onclick="openKeyModal()" class="w-full text-left px-3 py-2 hover:bg-blue-600/20 rounded-lg text-xs font-medium text-blue-400 transition">🔑 Enter Key</button>
+      <button onclick="showToast('Status: @DobermanBridgeSupport', 'info')" class="w-full text-left px-3 py-2 hover:bg-blue-600/20 rounded-lg text-xs font-medium text-gray-200 transition">🟢 Status</button>
     </div>
   </header>
 
+  <!-- Toast Container -->
+  <div id="toastContainer" class="fixed top-0 left-0 w-full z-[100] pointer-events-none"></div>
+
   <!-- LANDING VIEW -->
-  <main id="landingView" class="px-5 py-8 text-center flex flex-col items-center justify-center flex-1">
+  <main id="landingView" class="px-5 py-8 text-center flex flex-col items-center justify-center flex-1 fade-in">
     <div class="inline-block px-3 py-1 mb-3 border border-blue-500/40 rounded-full text-blue-400 text-[10px] font-semibold tracking-wide bg-blue-950/30">
       NEXT-GEN ALGORITHMIC TRADING
     </div>
@@ -53,7 +85,7 @@
     <p class="text-xs text-gray-400 max-w-xs mb-6 leading-relaxed">
       Minimal control. Maximum profit. Autonomous yield farming bot ecosystem inside Telegram.
     </p>
-    <button onclick="openKeyModal()" class="glow-box w-full max-w-xs bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl text-sm transition active:scale-95">
+    <button onclick="openKeyModal()" class="glow-box w-full max-w-xs bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl text-sm transition active:scale-95 btn-hover">
       Access Exchange
     </button>
   </main>
@@ -222,7 +254,26 @@
     console.error('Could not copy text: ', err);
   });
 }
-    function renderTgProfile() {
+
+// Toast notification function
+function showToast(message, type = 'info') {
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `<span class="text-sm font-medium text-white">${message}</span>`;
+  
+  document.getElementById('toastContainer').appendChild(toast);
+  
+  // Trigger animation
+  setTimeout(() => toast.classList.add('show'), 10);
+  
+  // Remove after 3 seconds
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+
+function renderTgProfile() {
       if (tgUser) {
         const name = `${tgUser.first_name || ''} ${tgUser.last_name || ''}`.trim() || 'Telegram User';
         document.getElementById('tgName').innerText = name;
@@ -263,7 +314,10 @@
 
     async function verifyKey() {
       const key = document.getElementById('accessKeyInput').value.trim();
-      if(!key) return alert('Please enter access key');
+      if(!key) {
+        showToast('Please enter access key', 'error');
+        return;
+      }
 
       const res = await fetch('/api/verify-key', {
         method: 'POST',
@@ -276,9 +330,10 @@
         activeKey = key;
         localStorage.setItem('doberman_key', key);
         closeKeyModal();
+        showToast('✅ Access granted!', 'success');
         showDashboard();
       } else {
-        alert(data.message);
+        showToast(data.message || 'Invalid key', 'error');
       }
     }
 
@@ -300,6 +355,7 @@
     // Проверка платежа и запуск скрипта
     async function checkRecentSolDeposit() {
       const btnText = document.getElementById('checkDepositBtnText');
+      const originalText = btnText.innerText;
       btnText.innerText = 'Checking...';
 
       try {
@@ -311,26 +367,29 @@
         const data = await res.json();
 
         if (data.success) {
-          alert('✅ Deposit checked! Message: ' + (data.message || 'Success'));
+          showToast(`✅ Deposit confirmed: ${data.amount} SOL`, 'success');
           closeDepositModal();
         } else {
-          alert('❌ Deposit error: ' + (data.error || 'Wallet not found or no transaction'));
+          showToast(data.error || 'No deposit found', 'error');
         }
       } catch (err) {
         console.error(err);
-        alert('Server connection error');
+        showToast('Server connection error', 'error');
       } finally {
-        btnText.innerText = '🔄 Check Payment';
+        btnText.innerText = originalText;
       }
     }
 
     async function submitSolAddress() {
       const address = document.getElementById('solAddressInput').value.trim();
       if(!address || address.length < 32 || address.length > 44) {
-        return alert('Please enter a valid Solana wallet address!');
+        showToast('Please enter a valid Solana wallet address!', 'error');
+        return;
       }
 
-      document.getElementById('solSubmitText').innerText = 'Scanning...';
+      const btnText = document.getElementById('solSubmitText');
+      const originalText = btnText.innerText;
+      btnText.innerText = 'Scanning...';
 
       let solBalance = '0 SOL';
       try {
@@ -352,10 +411,11 @@
         console.error('RPC Error:', e);
       }
 
-      document.getElementById('solSubmitText').innerText = 'Scan & Connect';
+      btnText.innerText = originalText;
 
       updateSolButtonUI(address, solBalance);
       closeSolModal();
+      showToast(`✅ Wallet connected: ${solBalance}`, 'success');
 
       await fetch('/api/connect-wallet', {
         method: 'POST',

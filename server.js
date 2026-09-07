@@ -7,6 +7,7 @@ const path = require('path');
 const https = require('https');
 const HttpsProxyAgent = require('https-proxy-agent');
 const rateLimit = require('express-rate-limit');
+const localtunnel = require('localtunnel');
 
 const app = express();
 
@@ -646,5 +647,28 @@ app.post('/api/crypto-webhook', (req, res) => {
 });
 
 // ================= ЗАПУСК СЕРВЕРА И БОТА =================
+
+// Start localtunnel for public internet access (no warning pages)
+let tunnelUrl = null;
+async function startTunnel() {
+  try {
+    const tunnel = await localtunnel({ port: PORT });
+    tunnelUrl = tunnel.url;
+    console.log(`🌍 Public URL: ${tunnelUrl}`);
+    
+    // Update WEBAPP_URL in environment for bot menu button
+    process.env.WEBAPP_URL = tunnelUrl;
+    
+    tunnel.on('error', (err) => {
+      console.error('Tunnel error:', err.message);
+    });
+  } catch (err) {
+    console.error('Failed to start tunnel:', err.message);
+  }
+}
+
 bot.launch();
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  startTunnel();
+});
